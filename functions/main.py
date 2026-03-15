@@ -5,7 +5,7 @@ from vertexai.preview.reasoning_engines import ReasoningEngine
 
 initialize_app()
 
-AGENT_RESOURCE_NAME = "projects/941446881468/locations/us-central1/reasoningEngines/1404453481158279168"
+AGENT_RESOURCE_NAME = "projects/941446881468/locations/us-central1/reasoningEngines/5261223612047687680"
 
 @https_fn.on_call(
     region="us-central1",
@@ -25,7 +25,8 @@ def analyze_image(req: https_fn.CallableRequest) -> dict:
             code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
             message="Missing gcs_uri"
         )
-        
+    disease = req.data.get("disease", "Healthy adult (General Nutrition)")
+
     try:
         # Connect to Vertex AI Reasoning Engine API
         vertexai.init(project="saeed-demo-proj", location="us-central1")
@@ -34,7 +35,7 @@ def analyze_image(req: https_fn.CallableRequest) -> dict:
         # Call our query method that we deployed in `agent.py`
         text_response = remote_agent.query(
             gcs_uri=gcs_uri,
-            prompt="Analyze this image. What is it?"
+            disease=disease
         )
         
         return {"result": text_response}
