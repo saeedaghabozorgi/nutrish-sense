@@ -1,0 +1,40 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "saeed-demo-proj",
+          "appId": "1:941446881468:android:985d5c8853a02f073130b9",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "saeed-demo-proj",
+          "configurations": {
+            "android": "1:941446881468:android:985d5c8853a02f073130b9",
+            "ios": "1:941446881468:ios:9a260096bdb042f93130b9",
+            "macos": "1:941446881468:ios:9a260096bdb042f93130b9",
+            "web": "1:941446881468:web:48291e55b1e99a0d3130b9",
+            "windows": "1:941446881468:web:ca49375c7b712ee53130b9"
+          }
+        }
+      }
+    }
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "venv",
+        ".venv",
+        "__pycache__",
+        "**/*.pyc"
+      ]
+    }
+  ]
+}

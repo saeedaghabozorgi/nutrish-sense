@@ -1,0 +1,23 @@
+name: photo_upload_app
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.11.1
+
+dependencies:
+  cloud_functions: ^6.0.7
+  firebase_core: ^4.5.0
+  firebase_storage: ^13.1.0
+  flutter:
+    sdk: flutter
+  image_picker: ^1.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "941446881468",
+    "project_id": "saeed-demo-proj",
+    "storage_bucket": "saeed-demo-proj.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:941446881468:android:985d5c8853a02f073130b9",
+        "android_client_info": {
+          "package_name": "com.example.photo_upload_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "941446881468-6tun5sfpes9te8s2hhsqj6bbok7v0ec7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLZQWCum4zbI3xe7968NrHKdoizIdPEv0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "941446881468-6tun5sfpes9te8s2hhsqj6bbok7v0ec7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
