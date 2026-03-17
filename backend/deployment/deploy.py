@@ -1,6 +1,10 @@
 import argparse
 import vertexai
+import os
+from dotenv import load_dotenv
 from vertexai.preview.reasoning_engines import ReasoningEngine
+
+load_dotenv()
 
 from dietary_agent.agent import app
 
@@ -10,13 +14,14 @@ def deploy_agent(project: str, location: str, staging_bucket: str):
     print(f"Initializing deployment for project {project} in {location}...")
     vertexai.init(project=project, location=location, staging_bucket=staging_bucket)
 
-    display_name = "Multi-Agent ADK Dietician Release 3.1"
-    print(f"Checking for existing 'Multi-Agent ADK Dietician Release' instances to update...")
+    display_name = os.environ.get("AGENT_FULL_DEPLOYMENT_NAME", "Multi-Agent ADK Dietician Release 3.1")
+    agent_prefix = os.environ.get("AGENT_DISPLAY_NAME_PREFIX", "Multi-Agent ADK Dietician Release")
+    print(f"Checking for existing '{agent_prefix}' instances to update...")
     engines = ReasoningEngine.list()
     
     existing_engine_id = None
     for engine in engines:
-        if engine.display_name.startswith("Multi-Agent ADK Dietician Release"):
+        if engine.display_name.startswith(agent_prefix):
             existing_engine_id = engine.resource_name
             break
 
@@ -63,9 +68,9 @@ def deploy_agent(project: str, location: str, staging_bucket: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Deploy the ADK DietaryCoordinatorAgent to Vertex AI.")
-    parser.add_argument("--project", type=str, required=True, help="Google Cloud Project ID")
-    parser.add_argument("--location", type=str, default="us-central1", help="Google Cloud Region (default: us-central1)")
-    parser.add_argument("--bucket", type=str, required=True, help="Cloud Storage Staging Bucket (must start with gs://)")
+    parser.add_argument("--project", type=str, default=os.environ.get("GCP_PROJECT_ID"), help="Google Cloud Project ID")
+    parser.add_argument("--location", type=str, default=os.environ.get("GCP_LOCATION", "us-central1"), help="Google Cloud Region")
+    parser.add_argument("--bucket", type=str, default=os.environ.get("AGENT_STAGING_BUCKET"), help="Cloud Storage Staging Bucket")
     
     args = parser.parse_args()
     deploy_agent(args.project, args.location, args.bucket)

@@ -4,6 +4,7 @@ import vertexai
 from vertexai.preview.reasoning_engines import ReasoningEngine
 import json
 import traceback
+import os
 
 initialize_app()
 
@@ -16,10 +17,11 @@ def get_latest_engine() -> str:
     if _cached_engine_id:
         return _cached_engine_id
         
-    print("Stage 0: Cold start - Querying Vertex AI for latest 'Multi-Agent ADK Dietician' engine...")
-    vertexai.init(project="saeed-demo-proj", location="us-central1")
+    agent_prefix = os.environ.get("AGENT_DISPLAY_NAME_PREFIX", "Multi-Agent ADK Dietician")
+    print(f"Stage 0: Cold start - Querying Vertex AI for latest '{agent_prefix}' engine...")
+    vertexai.init(project=os.environ.get("GCP_PROJECT_ID", "saeed-demo-proj"), location=os.environ.get("GCP_LOCATION", "us-central1"))
     engines = filter(
-        lambda e: e.display_name and e.display_name.startswith("Multi-Agent ADK Dietician"),
+        lambda e: e.display_name and e.display_name.startswith(agent_prefix),
         ReasoningEngine.list()
     )
     
@@ -38,11 +40,11 @@ def get_latest_engine() -> str:
     return _cached_engine_id
 
 @https_fn.on_call(
-    region="us-central1",
+    region=os.environ.get("GCP_LOCATION", "us-central1"),
     memory=options.MemoryOption.GB_1,
     timeout_sec=120,
     enforce_app_check=False,
-    service_account="dietary-app-backend@saeed-demo-proj.iam.gserviceaccount.com"
+    service_account=os.environ.get("SERVICE_ACCOUNT_EMAIL", "dietary-app-backend@saeed-demo-proj.iam.gserviceaccount.com")
 )
 def analyze_image(req: https_fn.CallableRequest) -> dict:
     """Triggered by the Flutter app via Callable functions."""
@@ -97,7 +99,7 @@ def analyze_image(req: https_fn.CallableRequest) -> dict:
         # Connect to Vertex AI Agent Engines API
         active_agent_resource_name = get_latest_engine()
         print(f"Stage 3: Calling Vertex AI Agent Engine ({active_agent_resource_name})...")
-        client = vertexai.Client(project="saeed-demo-proj", location="us-central1")
+        client = vertexai.Client(project=os.environ.get("GCP_PROJECT_ID", "saeed-demo-proj"), location=os.environ.get("GCP_LOCATION", "us-central1"))
         adk_app = client.agent_engines.get(name=active_agent_resource_name)
         
         lab_results = req.data.get("labResults", "")

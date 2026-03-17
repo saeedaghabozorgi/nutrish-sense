@@ -2,13 +2,20 @@ import os
 import vertexai
 from google.adk.agents import LlmAgent
 from vertexai.agent_engines import AdkApp
+from dotenv import load_dotenv
 
 from .sub_agents.vision_agent import vision_agent
 from .sub_agents.clinical_agent import clinical_agent
 
+# Load dot env variables from the nearest .env file
+load_dotenv()
+
 # Setup
 os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
-vertexai.init(project="saeed-demo-proj", location="us-central1")
+vertexai.init(
+    project=os.environ.get("GCP_PROJECT_ID", "saeed-demo-proj"), 
+    location=os.environ.get("GCP_LOCATION", "us-central1")
+)
 
 prompt_path = os.path.join(os.path.dirname(__file__), "prompt.txt")
 with open(prompt_path, "r") as f:
