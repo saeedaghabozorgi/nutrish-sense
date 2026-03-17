@@ -3,35 +3,22 @@ import vertexai
 from google.adk.agents import LlmAgent
 from vertexai.agent_engines import AdkApp
 
+from .sub_agents.vision_agent import vision_agent
+from .sub_agents.clinical_agent import clinical_agent
+
 # Setup
 os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
 vertexai.init(project="saeed-demo-proj", location="us-central1")
 
+prompt_path = os.path.join(os.path.dirname(__file__), "prompt.txt")
+with open(prompt_path, "r") as f:
+    master_instruction = f.read()
+
 agent = LlmAgent(
     name="chief_agent",
-    model="gemini-2.5-flash",
-    instruction="""
-    Act as a medical dietician. 
-    Analyze the food image provided and the patient's context (diseases, lab results, medications, allergies).
-    Provide a detailed assessment of how this food affects the patient's conditions, and suggest healthy alternatives.
-    Please format your response clearly. You should provide the assesment per user's desease, and overall assesment. Feel free to use lists or paragraphs.
-    You should provide the response in JSON format with the following structure:
-    {
-        "food_name": "Name of the food",
-        "food_category": "Category of the food",
-        "overall_color": "Color associated to degree of the food being healthy or unhealthy considering users diseases. Green for healthy, Yellow for moderate, Red for unhealthy.",
-        "overall_rating": "Overall rating of the food",
-        "overall_assessment": "Overall assessment of the food",
-        "disease_assessments": {
-            "disease_name": "Assessment of the food for the disease",
-            "disease_name": "Assessment of the food for the disease"
-        },
-        "healthy_alternatives": [
-            "Healthy alternative 1",
-            "Healthy alternative 2"
-        ]
-    }
-    """
+    model="gemini-3-flash-preview",
+    instruction=master_instruction,
+    tools=[vision_agent, clinical_agent]
 )
 
 app = AdkApp(agent=agent)

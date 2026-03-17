@@ -4,13 +4,13 @@ from vertexai.preview.reasoning_engines import ReasoningEngine
 
 from dietary_agent.agent import app
 
-AGENT_WHL_FILE = "dist/dietary_agent-3.0.0-py3-none-any.whl"
+AGENT_WHL_FILE = "dist/dietary_agent-3.1.0-py3-none-any.whl"
 
 def deploy_agent(project: str, location: str, staging_bucket: str):
     print(f"Initializing deployment for project {project} in {location}...")
     vertexai.init(project=project, location=location, staging_bucket=staging_bucket)
 
-    display_name = "Multi-Agent ADK Dietician Release 3"
+    display_name = "Multi-Agent ADK Dietician Release 3.1"
     print(f"Checking for existing '{display_name}' instances to update...")
     engines = ReasoningEngine.list()
     

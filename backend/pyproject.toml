@@ -1,6 +1,6 @@
 [project]
 name = "dietary-agent"
-version = "3.0.0"
+version = "3.1.0"
 description = "Dietary Analysis Multi-Agent using Google ADK"
 authors = [
     { name = "Saeed", email = "saeedagha@google.com" }
