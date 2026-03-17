@@ -11,12 +11,12 @@ def deploy_agent(project: str, location: str, staging_bucket: str):
     vertexai.init(project=project, location=location, staging_bucket=staging_bucket)
 
     display_name = "Multi-Agent ADK Dietician Release 3.1"
-    print(f"Checking for existing '{display_name}' instances to update...")
+    print(f"Checking for existing 'Multi-Agent ADK Dietician Release' instances to update...")
     engines = ReasoningEngine.list()
     
     existing_engine_id = None
     for engine in engines:
-        if engine.display_name == display_name:
+        if engine.display_name.startswith("Multi-Agent ADK Dietician Release"):
             existing_engine_id = engine.resource_name
             break
 
