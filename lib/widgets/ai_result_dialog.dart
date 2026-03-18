@@ -1,31 +1,29 @@
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // Add kDebugMode
 import '../main.dart'; // For GradientIndicatorBar
 
 class AiResultDialog extends StatelessWidget {
   final String rawResult;
   final String? overallColorOverride; // For History compatibility
+  final String? docId;
+  final String? currentDecision;
 
   const AiResultDialog({
     super.key,
     required this.rawResult,
     this.overallColorOverride,
+    this.docId,
+    this.currentDecision,
   });
 
   @override
   Widget build(BuildContext context) {
     Map<String, dynamic>? parsedJson;
     try {
-      // Handle markdown code blocks if the AI returned them
-      String cleanJson = rawResult;
-      if (cleanJson.startsWith('```json')) {
-        cleanJson = cleanJson.substring(7);
-      } else if (cleanJson.startsWith('```')) {
-        cleanJson = cleanJson.substring(3);
-      }
-      if (cleanJson.endsWith('```')) {
-        cleanJson = cleanJson.substring(0, cleanJson.length - 3);
-      }
+      final match = RegExp(r'```(?:json)?\s*([\s\S]*?)```').firstMatch(rawResult);
+      final cleanJson = match != null ? match.group(1)! : rawResult;
       parsedJson = jsonDecode(cleanJson.trim());
     } catch (e) {
       // Fallback if parsing fails
@@ -180,24 +178,72 @@ class AiResultDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () {
-            showDialog(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: const Text("Raw Output"),
-                content:
-                    SingleChildScrollView(child: SelectableText(rawResult)),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text("Close"))
-                ],
-              ),
-            );
-          },
-          child: const Text('View Raw'),
-        ),
+          OutlinedButton.icon(
+            onPressed: () async {
+              if (docId == null) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot save decision: Document ID is missing.')));
+                return;
+              }
+              final scaffold = ScaffoldMessenger.of(context);
+              Navigator.of(context).pop();
+              try {
+                await FirebaseFirestore.instance.collection('photos').doc(docId).update({'userDecision': 'pass'});
+                scaffold.clearSnackBars();
+                scaffold.showSnackBar(const SnackBar(content: Text('Decision tracked: Passed!')));
+              } catch (e) {
+                scaffold.showSnackBar(const SnackBar(content: Text('Database failure. Not saved.'), backgroundColor: Colors.red));
+                debugPrint('Background error: $e');
+              }
+            },
+            icon: const Icon(Icons.block),
+            label: Text(currentDecision == 'pass' ? 'Passed' : "I'll Pass"),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: currentDecision == 'pass' ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.outline),
+              foregroundColor: currentDecision == 'pass' ? Theme.of(context).colorScheme.error : null,
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: () async {
+              if (docId == null) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot save decision: Document ID is missing.')));
+                return;
+              }
+              final scaffold = ScaffoldMessenger.of(context);
+              Navigator.of(context).pop();
+              try {
+                await FirebaseFirestore.instance.collection('photos').doc(docId).update({'userDecision': 'consume'});
+                scaffold.clearSnackBars();
+                scaffold.showSnackBar(const SnackBar(content: Text('Decision tracked: Eaten!')));
+              } catch (e) {
+                scaffold.showSnackBar(const SnackBar(content: Text('Database failure. Not saved.'), backgroundColor: Colors.red));
+                debugPrint('Background error: $e');
+              }
+            },
+            icon: const Icon(Icons.restaurant),
+            label: Text(currentDecision == 'consume' ? 'Consumed' : "I'll Eat It!"),
+            style: FilledButton.styleFrom(
+              backgroundColor: currentDecision == 'consume' ? Colors.green : null,
+            ),
+          ),
+        if (kDebugMode)
+          TextButton(
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text("Raw Output"),
+                  content:
+                      SingleChildScrollView(child: SelectableText(rawResult)),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text("Close"))
+                  ],
+                ),
+              );
+            },
+            child: const Text('View Raw'),
+          ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Close'),

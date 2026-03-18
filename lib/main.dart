@@ -11,8 +11,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:image_cropper/image_cropper.dart';
+
 import 'firebase_options.dart';
 import 'widgets/ai_result_dialog.dart';
+
+// Global theme notifier for simple UX modification
+final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier(ThemeMode.system);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,26 +32,48 @@ class DietaryApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Dietary Recommendations',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1565C0), // Medical Blue
-          primary: const Color(0xFF1565C0),
-          secondary: const Color(0xFF00ACC1), // Cyan accent
-          surface: Colors.white,
-          surfaceContainerHighest: const Color(0xFFF5F7FA), // Soft background
-        ),
-        useMaterial3: true,
-        textTheme: GoogleFonts.nunitoTextTheme(Theme.of(context).textTheme),
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-        ),
-      ),
-      home: const AuthWrapper(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeModeNotifier,
+      builder: (context, ThemeMode currentMode, _) {
+        return MaterialApp(
+          title: 'Dietary Recommendations',
+          debugShowCheckedModeBanner: false,
+          themeMode: currentMode,
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF1565C0), // Medical Blue
+              primary: const Color(0xFF1565C0),
+              secondary: const Color(0xFF00ACC1), // Cyan accent
+              surface: Colors.white,
+              surfaceContainerHighest: const Color(0xFFF5F7FA), // Soft background
+            ),
+            useMaterial3: true,
+            textTheme: GoogleFonts.nunitoTextTheme(ThemeData.light().textTheme),
+            appBarTheme: const AppBarTheme(
+              centerTitle: true,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+            ),
+          ),
+          darkTheme: ThemeData.dark().copyWith(
+            colorScheme: ColorScheme.fromSeed(
+              brightness: Brightness.dark,
+              seedColor: const Color(0xFF1565C0),
+              primary: const Color(0xFF90CAF9),
+              secondary: const Color(0xFF00ACC1),
+              surface: const Color(0xFF121212),
+              surfaceContainerHighest: const Color(0xFF1E1E1E), // Soft dark background
+            ),
+            textTheme: GoogleFonts.nunitoTextTheme(ThemeData.dark().textTheme),
+            appBarTheme: const AppBarTheme(
+              centerTitle: true,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+            ),
+          ),
+          home: const AuthWrapper(),
+        );
+      },
     );
   }
 }
@@ -194,7 +223,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 _isLogin ? 'Create an account' : 'I already have an account',
               ),
             ),
-          ],
+          ].animate(interval: 50.ms).fade(duration: 400.ms).slideY(begin: 0.1, duration: 400.ms),
         ),
       ),
     );
@@ -342,23 +371,49 @@ class _AnalyzeTabState extends State<AnalyzeTab> {
     }
   }
 
-  Future<void> _takePhoto() async {
+  Future<void> _pickImage(ImageSource source) async {
     try {
       final XFile? photo = await _picker.pickImage(
-        source: ImageSource.camera,
+        source: source,
         imageQuality: 85,
       );
       if (photo != null) {
-        setState(() {
-          _imageFile = photo;
-          _webImagePath = photo.path;
-        });
+        final croppedFile = await ImageCropper().cropImage(
+          sourcePath: photo.path,
+          uiSettings: [
+            AndroidUiSettings(
+              toolbarTitle: 'Crop Your Photo',
+              toolbarColor: Theme.of(context).colorScheme.primary,
+              toolbarWidgetColor: Colors.white,
+              initAspectRatio: CropAspectRatioPreset.original,
+              lockAspectRatio: false,
+            ),
+            IOSUiSettings(
+              title: 'Crop Your Photo',
+            ),
+            WebUiSettings(
+              context: context,
+              presentStyle: WebPresentStyle.dialog,
+              size: const CropperSize(
+                width: 400,
+                height: 400, // Reduced from the 500 default to fit laptop screens securely
+              ),
+            ),
+          ],
+        );
+
+        if (croppedFile != null) {
+          setState(() {
+            _imageFile = XFile(croppedFile.path);
+            _webImagePath = croppedFile.path;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to open camera: $e')));
+        ).showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
       }
     }
   }
@@ -440,7 +495,7 @@ class _AnalyzeTabState extends State<AnalyzeTab> {
       }
 
       // Save to Firestore History
-      await FirebaseFirestore.instance.collection('photos').add({
+      final docRef = await FirebaseFirestore.instance.collection('photos').add({
         'userId': user.uid,
         'storageUrl': 'gs://${storageRef.bucket}/${storageRef.fullPath}',
         'diseaseContext': _selectedDiseases.join(', '),
@@ -459,7 +514,7 @@ class _AnalyzeTabState extends State<AnalyzeTab> {
         showDialog(
           context: context,
           builder: (context) {
-            return AiResultDialog(rawResult: aiResult);
+            return AiResultDialog(rawResult: aiResult, docId: docRef.id);
           },
         );
       }
@@ -614,19 +669,42 @@ class _AnalyzeTabState extends State<AnalyzeTab> {
               ),
             ),
             const SizedBox(height: 32),
-            FilledButton.icon(
-              onPressed: _isUploading ? null : _takePhoto,
-              icon: const Icon(Icons.add_a_photo_outlined),
-              label: const Text(
-                'Take Photo',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.all(16.0),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _isUploading ? null : () => _pickImage(ImageSource.camera),
+                    icon: const Icon(Icons.add_a_photo_outlined),
+                    label: const Text(
+                      'Camera',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16.0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: _isUploading ? null : () => _pickImage(ImageSource.gallery),
+                    icon: const Icon(Icons.photo_library_outlined),
+                    label: const Text(
+                      'Gallery',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16.0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             FilledButton.tonalIcon(
@@ -646,7 +724,7 @@ class _AnalyzeTabState extends State<AnalyzeTab> {
               ),
             ),
           ],
-        ),
+        ).animate().fade(duration: 400.ms).slideX(begin: 0.05, duration: 400.ms),
       ),
     );
   }
@@ -802,6 +880,22 @@ class _ProfileTabState extends State<ProfileTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            ValueListenableBuilder<ThemeMode>(
+              valueListenable: themeModeNotifier,
+              builder: (context, currentMode, _) {
+                return SwitchListTile(
+                  title: const Text('Dark Mode', style: TextStyle(fontWeight: FontWeight.bold)),
+                  value: currentMode == ThemeMode.dark,
+                  onChanged: (value) {
+                    themeModeNotifier.value = value ? ThemeMode.dark : ThemeMode.light;
+                  },
+                  secondary: const Icon(Icons.dark_mode_outlined),
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: Theme.of(context).colorScheme.primary,
+                );
+              },
+            ),
+            const SizedBox(height: 16),
             const Text(
               'Profile details',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
@@ -1018,7 +1112,7 @@ class _ProfileTabState extends State<ProfileTab> {
                       ),
               ),
             ),
-          ],
+          ].animate(interval: 50.ms).fade(duration: 400.ms).slideX(begin: 0.05, duration: 400.ms),
         ),
       ),
     );
@@ -1058,7 +1152,7 @@ class HistoryTab extends StatelessWidget {
                   Icons.history_toggle_off,
                   size: 64,
                   color: Theme.of(context).colorScheme.outline,
-                ),
+                ).animate(onPlay: (controller) => controller.repeat(reverse: true)).shimmer(duration: 1200.ms, color: Theme.of(context).colorScheme.primary).moveY(begin: -5, end: 5, duration: 1200.ms),
                 const SizedBox(height: 16),
                 const Text("No past analyses found."),
               ],
@@ -1076,9 +1170,153 @@ class HistoryTab extends StatelessWidget {
           return tB.compareTo(tA); // descending
         });
 
+        // ----------------------------------------------------
+        // Compute Behavior Score & Chart Data
+        // ----------------------------------------------------
+        final List<double> consumedRatingsDescending = [];
+        
+        for (var d in docs) {
+          final dat = d.data() as Map<String, dynamic>;
+          if (dat['userDecision'] == 'consume' && dat.containsKey('rawResult')) {
+            try {
+              String raw = dat['rawResult'];
+              final match = RegExp(r'```(?:json)?\s*([\s\S]*?)```').firstMatch(raw);
+              String clean = match != null ? match.group(1)! : raw;
+              final parsed = jsonDecode(clean.trim());
+              
+              String colorMatch = (parsed['overall_color'] as String?)?.toLowerCase() ?? 'grey';
+              if (colorMatch.contains('green')) {
+                consumedRatingsDescending.add(10.0);
+              } else if (colorMatch.contains('yellow')) {
+                consumedRatingsDescending.add(5.0);
+              } else if (colorMatch.contains('red')) {
+                consumedRatingsDescending.add(0.0);
+              } else {
+                 String rateMatch = (parsed['overall_rating'] as String?)?.toLowerCase() ?? '';
+                 if (rateMatch.contains('safe')) consumedRatingsDescending.add(10.0);
+                 else if (rateMatch.contains('caution')) consumedRatingsDescending.add(5.0);
+                 else if (rateMatch.contains('avoid') || rateMatch.contains('danger')) consumedRatingsDescending.add(0.0);
+              }
+            } catch (e) {
+              // Gracefully ignore parse errors
+            }
+          }
+        }
+        
+        final chartRatings = consumedRatingsDescending.reversed.toList();
+        final double averageScore = chartRatings.isEmpty ? 0.0 : chartRatings.reduce((a, b) => a + b) / chartRatings.length;
+
+        // Determine badge color
+        Color scoreColor = Colors.grey;
+        if (chartRatings.isNotEmpty) {
+          if (averageScore >= 7) {
+            scoreColor = Colors.green;
+          } else if (averageScore >= 4) {
+            scoreColor = Colors.orange;
+          } else {
+            scoreColor = Colors.red;
+          }
+        }
+
         return ListView.builder(
-          itemCount: docs.length,
-          itemBuilder: (context, index) {
+          itemCount: docs.length + 1, // +1 for the Dashboard header
+          itemBuilder: (context, i) {
+            if (i == 0) {
+              // Dashboard Header
+              return Card(
+                elevation: 3,
+                margin: const EdgeInsets.all(16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Behavioral Dietary Score',
+                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                         textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      if (chartRatings.isEmpty)
+                         const Text(
+                           'No consumed items rated yet. Click "I\'ll Eat It!" on analyzed foods to build your score!',
+                           textAlign: TextAlign.center,
+                           style: TextStyle(color: Colors.grey),
+                         )
+                      else ...[
+                         Row(
+                           mainAxisAlignment: MainAxisAlignment.center,
+                           children: [
+                             Text(
+                               averageScore.toStringAsFixed(1),
+                               style: TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: scoreColor),
+                             ),
+                             const Text(' / 10', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey)),
+                           ],
+                         ),
+                         Text(
+                           'Based on ${chartRatings.length} meals consumed.',
+                           textAlign: TextAlign.center,
+                           style: const TextStyle(fontWeight: FontWeight.w500),
+                         ),
+                         const SizedBox(height: 24),
+                         const Text(
+                           'Progress Over Time',
+                           style: TextStyle(fontWeight: FontWeight.bold),
+                         ),
+                         const SizedBox(height: 16),
+                         SizedBox(
+                           height: 150,
+                           child: LineChart(
+                             LineChartData(
+                               gridData: const FlGridData(show: false),
+                               titlesData: FlTitlesData(
+                                 bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                 topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                 rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                 leftTitles: AxisTitles(
+                                   sideTitles: SideTitles(
+                                     showTitles: true,
+                                     reservedSize: 30,
+                                     interval: 2,
+                                     getTitlesWidget: (value, meta) => Text(value.toInt().toString(), style: const TextStyle(fontSize: 10)),
+                                   ),
+                                 ),
+                               ),
+                               borderData: FlBorderData(show: false),
+                               minX: 0,
+                               maxX: (chartRatings.length - 1).toDouble() < 1 ? 1 : (chartRatings.length - 1).toDouble(),
+                               minY: 0,
+                               maxY: 10,
+                               lineBarsData: [
+                                 LineChartBarData(
+                                   spots: List.generate(
+                                     chartRatings.length,
+                                     (index) => FlSpot(index.toDouble(), chartRatings[index]),
+                                   ),
+                                   isCurved: true,
+                                   color: Theme.of(context).colorScheme.primary,
+                                   barWidth: 4,
+                                   isStrokeCapRound: true,
+                                   dotData: const FlDotData(show: true),
+                                   belowBarData: BarAreaData(
+                                     show: true,
+                                     color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                                   ),
+                                 ),
+                               ],
+                             ),
+                           ),
+                         ),
+                      ],
+                    ],
+                  ),
+                ),
+              ).animate().fade().slideY(begin: -0.2);
+            }
+
+            final index = i - 1; // adjust index for list items
             final data = docs[index].data() as Map<String, dynamic>;
             final timestamp = data['createdAt'] as Timestamp?;
             final dateStr = timestamp != null
@@ -1087,7 +1325,30 @@ class HistoryTab extends StatelessWidget {
                   ).toLocal().toString().split('.')[0]
                 : 'Unknown Date';
 
-            final overallColor = data['overallColor'] as String? ?? 'Grey';
+            String overallColor = data['overallColor'] as String? ?? 'Grey';
+            String foodName = data['foodName'] as String? ?? 'Unknown Food';
+            String summaryText = 'Click to view detailed analysis.';
+            final assessments = data['assessments'] as List<dynamic>? ?? [];
+
+            if (data.containsKey('rawResult')) {
+               summaryText = 'Click to view analysis output.';
+               try {
+                  String raw = data['rawResult'];
+                  final match = RegExp(r'```(?:json)?\s*([\s\S]*?)```').firstMatch(raw);
+                  String clean = match != null ? match.group(1)! : raw;
+                  final parsed = jsonDecode(clean.trim());
+                  foodName = parsed['food_name'] ?? 'Analyzed Food';
+                  overallColor = parsed['overall_color'] ?? 'Grey';
+                  if (parsed['disease_assessments'] != null) {
+                    summaryText = '${(parsed['disease_assessments'] as Map).length} condition(s) analyzed.';
+                  }
+               } catch (e) {
+                  foodName = 'Raw AI Result';
+               }
+            } else if (assessments.isNotEmpty) {
+              summaryText = '${assessments.length} condition(s) analyzed.';
+            }
+
             Color indicatorColor;
             switch (overallColor.toLowerCase()) {
               case 'green':
@@ -1101,16 +1362,6 @@ class HistoryTab extends StatelessWidget {
                 break;
               default:
                 indicatorColor = Colors.grey;
-            }
-
-            final foodName = data.containsKey('rawResult') ? 'Raw AI Result' : (data['foodName'] as String? ?? 'Unknown Food');
-            final assessments = data['assessments'] as List<dynamic>? ?? [];
-
-            String summaryText = 'Click to view detailed analysis.';
-            if (data.containsKey('rawResult')) {
-               summaryText = 'Click to view raw JSON output.';
-            } else if (assessments.isNotEmpty) {
-              summaryText = '${assessments.length} condition(s) analyzed.';
             }
 
             return Card(
@@ -1142,6 +1393,16 @@ class HistoryTab extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (data['userDecision'] == 'consume')
+                       const Padding(
+                         padding: EdgeInsets.only(top: 4.0),
+                         child: Text('Decision: Consumed', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13)),
+                       )
+                    else if (data['userDecision'] == 'pass')
+                       const Padding(
+                         padding: EdgeInsets.only(top: 4.0),
+                         child: Text('Decision: Passed', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13)),
+                       ),
                   ],
                 ),
                 isThreeLine: true,
@@ -1150,7 +1411,11 @@ class HistoryTab extends StatelessWidget {
                     context: context,
                     builder: (context) {
                       if (data.containsKey('rawResult')) {
-                         return AiResultDialog(rawResult: data['rawResult']);
+                         return AiResultDialog(
+                           rawResult: data['rawResult'],
+                           docId: docs[index].id,
+                           currentDecision: data['userDecision'] as String?,
+                         );
                       } else {
                          return AlertDialog(
                             title: Column(
@@ -1270,6 +1535,37 @@ class HistoryTab extends StatelessWidget {
                                   },
                                   child: const Text('View Photo'),
                                 ),
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  try {
+                                    FirebaseFirestore.instance.collection('photos').doc(docs[index].id).update({'userDecision': 'pass'});
+                                  } catch (e) {
+                                    debugPrint('Background error: $e');
+                                  }
+                                },
+                                icon: const Icon(Icons.block),
+                                label: Text(data['userDecision'] == 'pass' ? 'Passed' : "I'll Pass"),
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(color: data['userDecision'] == 'pass' ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.outline),
+                                  foregroundColor: data['userDecision'] == 'pass' ? Theme.of(context).colorScheme.error : null,
+                                ),
+                              ),
+                              FilledButton.icon(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  try {
+                                    FirebaseFirestore.instance.collection('photos').doc(docs[index].id).update({'userDecision': 'consume'});
+                                  } catch (e) {
+                                    debugPrint('Background error: $e');
+                                  }
+                                },
+                                icon: const Icon(Icons.restaurant),
+                                label: Text(data['userDecision'] == 'consume' ? 'Consumed' : "I'll Eat It!"),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: data['userDecision'] == 'consume' ? Colors.green : null,
+                                ),
+                              ),
                               TextButton(
                                 onPressed: () => Navigator.pop(context),
                                 child: const Text('Close'),
@@ -1281,7 +1577,7 @@ class HistoryTab extends StatelessWidget {
                   );
                 },
               ),
-            );
+            ).animate().fade(duration: 300.ms, delay: (index * 50).ms).slideX(begin: -0.05, duration: 300.ms);
           },
         );
       },
