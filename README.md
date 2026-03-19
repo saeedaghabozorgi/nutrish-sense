@@ -6,6 +6,14 @@ The app leverages Google Cloud's **Vertex AI Reasoning Engine (Gemini 2.5 Flash)
 
 ---
 
+## ✨ Key Features (Recent Updates)
+
+- **📊 Behavioral Scoring Dashboard**: Aggregates your historical eating behavior trends into a floating numerical score right on top of the History tab.
+- **📈 Timeline Line Charting**: Visually curves your clinical adherence over time in chronological graphs, warning you if your average dives into dangerous thresholds.
+- ** Snappy UX dismissal Actions**: Log compliance interactively with click-and-snap interactive widgets ensuring fast-cleared background database sync runs flawlessly invisibly.
+
+---
+
 ## 🏗️ Architecture
 
 The project consists of three main tightly integrated components:
@@ -13,6 +21,7 @@ The project consists of three main tightly integrated components:
 1. **Frontend (Flutter)**: A cross-platform Flutter application (optimized for Web) that captures images, allows disease selection, uploads the image to Cloud Storage, and displays the AI results in an expandable color-coded UI.
 2. **Cloud Functions (Firebase)**: A serverless backend endpoint that acts as the secure intermediary. It takes the Storage URI and the disease string from the Flutter app and passes it securely to Vertex AI.
 3. **Reasoning Engine (Vertex AI)**: A dedicated Python Agent running `gemini-2.5-flash` that is explicitly prompted to act as an expert medical dietician. It analyzes the image and returns a strictly formatted JSON payload with the evaluation.
+4. **Firestore (Database)**: Operates as the long-term historical structure that stores AI analyses and tracks user behavioral decisions.
 
 ### Data Flow
 1. User selects a disease and uploads an image in the **Flutter App**.
@@ -20,8 +29,9 @@ The project consists of three main tightly integrated components:
 3. Flutter triggers the `analyze_image` **Firebase Cloud Function**, passing the Storage URI and selected disease.
 4. The Cloud Function calls the **Vertex AI Reasoning Engine** using the Python SDK.
 5. The `ImageAnalyzerAgent` prompts Gemini 2.5 Flash, returning a JSON evaluation.
-6. The Cloud Function returns this JSON to Flutter.
-7. Flutter parses the JSON and presents a red-to-green gradient UI bottom sheet to the user.
+6. The Cloud Function returns this JSON to Flutter, and creates a log document in **Firestore**.
+7. Flutter parses the JSON and presents a color-coded UI result bottom sheet to the user.
+8. User interacts with **Eat It** or **Pass** buttons, triggering a background update directly to the **Firestore** document to track dietary behavior compliance.
 
 ---
 
@@ -41,7 +51,8 @@ photo_upload_app/
 │       ├── deploy.py         # Script to deploy the Agent to Reasoning Engine
 │       └── requirements.txt  # Agent deployment dependencies
 ├── firebase.json             # Firebase deployment and local emulator configuration
-└── storage.rules             # Firebase Storage security rules
+├── firestore.rules            # Firestore database security rules (enables decision tracking)
+└── storage.rules              # Firebase Storage security rules
 ```
 
 ---
