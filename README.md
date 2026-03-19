@@ -40,18 +40,23 @@ The project consists of three main tightly integrated components:
 ```text
 photo_upload_app/
 ├── lib/
-│   ├── main.dart             # Main Flutter UI (Camera, Dropdown, Upload, Dialogs)
+│   ├── main.dart             # Main Flutter UI (Camera, Display, Behavior Dashboards)
 │   └── firebase_options.dart # Generated Firebase configuration keys
 ├── functions/
-│   ├── main.py               # Firebase Cloud Function (Python 3.13)
+│   ├── main.py               # Firebase Cloud Function (Serverless Middleware)
 │   └── requirements.txt      # Cloud Function dependencies
 ├── backend/
-│   └── agent/
-│       ├── agent.py          # The core Vertex AI Agent class and Gemini prompting
-│       ├── deploy.py         # Script to deploy the Agent to Reasoning Engine
-│       └── requirements.txt  # Agent deployment dependencies
-├── firebase.json             # Firebase deployment and local emulator configuration
-├── firestore.rules            # Firestore database security rules (enables decision tracking)
+│   ├── pyproject.toml        # Python packaging configurations
+│   ├── dietary_agent/        # Core Multi-Agent Logic
+│   │   ├── agent.py          # Vertex AI Reasoning Engine / ADK wrapper
+│   │   ├── prompt.txt         # Medical synthesis prompting pipeline
+│   │   └── sub_agents/       # Specialist nodes configured in deployment
+│   │       ├── clinical_agent.py # Evaluates ingredients against medical profiles
+│   │       └── vision_agent.py   # Identifies exact ingredients from image stream
+│   └── deployment/           # Deployment Logic
+│       └── deploy.py         # Script to package & serve the agent to Vertex
+├── firebase.json             # Firebase deployment configuration
+├── firestore.rules            # Firestore database security rules (enables tracking)
 └── storage.rules              # Firebase Storage security rules
 ```
 
